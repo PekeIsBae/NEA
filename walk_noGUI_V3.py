@@ -44,7 +44,7 @@ class Board:
             if direction in self.valid_moves:
                 self.p.move(self.layout, direction)
                 return False
-            elif direction == 0:
+            elif direction == '0':
                 return True
 
 
@@ -56,6 +56,9 @@ class Tile:
     def get_id(self):
         return self.id
 
+# TODO: Create wall objects that will be used for collisions instead, rather than board borders
+class Wall:
+    pass
 
 # Moves around the board based on commands
 class Player:
@@ -78,13 +81,13 @@ class Player:
         return self.tile_below.get_id()
 
     def possible_moves(self, board):
+        # TODO: Implement collisions with wall objects
         self.valid_directions = []
         # Find which directions the player can move in
         for place, direction in enumerate(self.direction_vectors):
             self.valid = True
             self.new_pos_y = self.pos[0] + direction[0]
             self.new_pos_x = self.pos[1] + direction[1]
-            # TODO Properly implement boundry detection without relaying in IndexError
             try:
                 if self.new_pos_y >= 0 and self.new_pos_x >= 0:
                     self.temp_tile_below = board[self.new_pos_y][self.new_pos_x]
