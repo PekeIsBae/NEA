@@ -113,5 +113,3 @@ g = Game()
 g.start()
 
 #exit()
-
-# Well that was idiotic
