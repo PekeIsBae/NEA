@@ -5,7 +5,7 @@
 '''
 Essentials for OOP:
 - Using methods means we can generally use less parameters for functions
-- Make reduce interdependency between objects as much as possible, the program should not crash for every change made
+- Reduce interdependency between objects as much as possible, the program should not crash for every change made
 - Keep data in objects, only access it via a few functions. This makes the interface simpler.
 '''
 
@@ -27,12 +27,22 @@ class Game:
 # Contains the all tile, box and player objects
 class Board:
     def __init__(self):
+        '''
+        TODO Rework all object placement to be based on 'place' functions, rather than writing things into layout
+             This is closer to what the final produce will be like
+             In the final product levels can be stored as:
+             - Dimensions of tiles (how large will the level be)
+             - Places of various objects (location of all walls, crates, player and goal tile)
+             At the start of the game these objects are 'placed' on the tile grid
+             This can be done as a text file
+        '''
         self.layout = [[Tile(0, None), Tile(1, None), Tile(2, None), Tile(3, None)],
                        [Tile(4, None), Tile(5, None), Tile(6, Wall(1)), Tile(7, None)],
                        [Tile(8, None), Tile(9, None), Tile(10, Wall(2)), Tile(11, None)],
                        [Tile(12, None), Tile(13, None), Tile(14, None), Tile(15, None)]]
         self.p = Player()
 
+    # TODO rework into 'place_object' that takes a list of objects and places them on the grid
     def place_player(self):
         self.p.place(self.layout)
 
@@ -48,8 +58,14 @@ class Board:
             elif direction == '0':
                 return True
 
+'''
+TODO create game_object class that player, box, wall and goal_tile inherits from
+     - Properties: start_pos (indicates where the object is placed on layout)
+     - Methods: place (reads from a list of objects and their start_pos. Places them at that start_pos)
+'''
 
 # Occupies the board as an area the player can move to
+# TODO remove id feature, contents is the only tile property
 class Tile:
     def __init__(self, _id, contents):
         self.id = _id
@@ -65,9 +81,8 @@ class Tile:
     def get_contents(self):
         return self.contents
 
-# TODO: Create wall objects that will be used for collisions instead, rather than board borders
 class Wall:
-    # There is not need for the wall to have an id, this can be removed later after testing
+    # There is no need for the wall to have an id, this can be removed later after testing
     def __init__(self, _id):
         self.id = _id
 
@@ -76,6 +91,9 @@ class Wall:
 
 # Moves around the board based on commands
 class Player:
+
+    # TODO: Possible_moves, move and direction vectors in 'moveable' class. player and box inherits
+
     def __init__(self):
         # (row, column)
         self.start_pos = [0, 0]
@@ -95,7 +113,6 @@ class Player:
         return self.tile_below.get_id()
 
     def possible_moves(self, board):
-        # TODO: Implement collisions with wall objects
         self.valid_directions = []
         # Find which directions the player can move in
         for place, direction in enumerate(self.direction_vectors):
