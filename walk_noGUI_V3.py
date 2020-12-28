@@ -27,9 +27,10 @@ class Game:
 # Contains the all tile, box and player objects
 class Board:
     def __init__(self):
-        self.layout = [[Tile(0), Tile(1), Tile(2), Tile(3)],
-                       [Tile(4), Tile(5), Tile(6), Tile(7)],
-                       [Tile(8), Tile(9), Tile(10)]]
+        self.layout = [[Tile(0, None), Tile(1, None), Tile(2, None), Tile(3, None)],
+                       [Tile(4, None), Tile(5, None), Tile(6, Wall(1)), Tile(7, None)],
+                       [Tile(8, None), Tile(9, None), Tile(10, Wall(2)), Tile(11, None)],
+                       [Tile(12, None), Tile(13, None), Tile(14, None), Tile(15, None)]]
         self.p = Player()
 
     def place_player(self):
@@ -50,15 +51,28 @@ class Board:
 
 # Occupies the board as an area the player can move to
 class Tile:
+    def __init__(self, _id, contents):
+        self.id = _id
+        self.contents = contents
+
+    def get_id(self):
+        return self.id
+
+    # A tile can only contain one item at a time
+    def update_contents(self, item):
+        self.contents = item
+
+    def get_contents(self):
+        return self.contents
+
+# TODO: Create wall objects that will be used for collisions instead, rather than board borders
+class Wall:
+    # There is not need for the wall to have an id, this can be removed later after testing
     def __init__(self, _id):
         self.id = _id
 
     def get_id(self):
         return self.id
-
-# TODO: Create wall objects that will be used for collisions instead, rather than board borders
-class Wall:
-    pass
 
 # Moves around the board based on commands
 class Player:
@@ -89,8 +103,14 @@ class Player:
             self.new_pos_y = self.pos[0] + direction[0]
             self.new_pos_x = self.pos[1] + direction[1]
             try:
+                # Prevents user having negative position
                 if self.new_pos_y >= 0 and self.new_pos_x >= 0:
-                    self.temp_tile_below = board[self.new_pos_y][self.new_pos_x]
+                    # Assignment causes value error if value is too high (out of bounds)
+                    self.tile_at_new_pos = board[self.new_pos_y][self.new_pos_x]
+                    # Checks the contents of the tile, if it is not empty return the wall direction and id
+                    if self.tile_at_new_pos.get_contents() is not None:
+                        print(f'wall at {self.dirs[place]} with id {self.tile_at_new_pos.get_contents().get_id()}')
+                        self.valid = False
                 else:
                     self.valid = False
             except IndexError:
