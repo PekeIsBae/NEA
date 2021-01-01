@@ -107,7 +107,7 @@ class Player:
 
     def place(self, board):
         self.tile_below = board[self.start_pos[0]][self.start_pos[1]]
-        self.get_tile_below()
+        print(self.get_tile_below())
 
     def get_tile_below(self):
         return self.tile_below.get_id()
