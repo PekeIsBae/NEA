@@ -18,7 +18,7 @@ class Board:
     def __init__(self):
         # Coordinates will later be read from text file
         self.wall_coords = [(0, 1), (0, 3)]
-        self.box_coords = [(1, 1), (1, 3)]
+        self.box_coords = [(2, 1), (1, 3)]
         self.gtile_coords = [(4, 0), (4, 4)]
         self.player_coords = (2, 2)
         # This will be given as width*height in a text file
@@ -37,15 +37,23 @@ class Board:
         for coord in self.box_coords:
             self.layout[coord[0]][coord[1]].change_contents(Box(coord[0], coord[1]))
         for coord in self.gtile_coords:
+            # TODO add in goal tiles and functionality so the game can be won
             self.layout[coord[0]][coord[1]].change_contents(G_Tile())
         self.layout[self.player_coords[0]][self.player_coords[1]].change_contents(self.p)
 
-    def move_player(self, current, new):
-        # TODO add a move_box function that does the same thing but for a box
+    def move_player(self, current, new, direction):
         self.layout[current[0]][current[1]].change_contents(None)
+        # If the place the player moves to has a box in it, move that box in the same direction
+        if type(self.layout[new[0]][new[1]].get_contents()) is Box:
+            self.box_to_move = self.layout[new[0]][new[1]].get_contents()
+            self.move_box(self.box_to_move, self.box_to_move.get_curr_pos(), self.box_to_move.get_new_pos(direction))
         self.layout[new[0]][new[1]].change_contents(self.p)
         # Check position by id
         # print(f'You are at {self.layout[new[0]][new[1]].get_id()}')
+
+    def move_box(self, box, current, new):
+        self.layout[current[0]][current[1]].change_contents(None)
+        self.layout[new[0]][new[1]].change_contents(box)
 
     def events(self):
         # Go through every tile in the layout, change their valid_moves
@@ -59,10 +67,10 @@ class Board:
             if direction == '0':
                 return True
             elif direction in self.valid_moves:
-                self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction))
+                self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction), direction)
                 # Check layout after moving
                 # for row in self.layout:
-                    # print(list(map(lambda x: x.get_contents(), row)))
+                #     print(list(map(lambda x: x.get_contents(), row)))
                 return False
 
 
@@ -87,6 +95,7 @@ class Player:
         self.valid_moves = []
         for counter, dir in enumerate(self.dirs):
             self.valid = True
+            self.moves_box = False
             self.new_posy = self.posy + self.movement_vectors[counter][0]
             self.new_posx = self.posx + self.movement_vectors[counter][1]
             try:
@@ -110,7 +119,7 @@ class Player:
             if self.valid:
                 self.valid_moves.append(dir)
         # Check if valid directions are calculated correctly
-        print(self.valid_moves)
+        # print(self.valid_moves)
         return self.valid_moves
 
 
@@ -182,6 +191,13 @@ class Box:
         # print(f'Box can move in {self.valid_moves}')
         return self.valid_moves
 
+    def get_curr_pos(self):
+        return self.posy, self.posx
+
+    def get_new_pos(self, direction):
+        self.posy += self.movement_vectors[self.dirs.index(direction)][0]
+        self.posx += self.movement_vectors[self.dirs.index(direction)][1]
+        return self.posy, self.posx
 
 class Wall:
     pass
