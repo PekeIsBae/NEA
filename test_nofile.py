@@ -17,16 +17,13 @@ class Board:
 
     def __init__(self):
         # Coordinates will later be read from text file
+        self.grid_dimensions = (5, 5)
         self.wall_coords = [(0, 1), (0, 3)]
         self.box_coords = [(2, 1), (2, 3)]
         self.gtile_coords = [(4, 0), (4, 4)]
         self.player_coords = (2, 2)
         # This will be given as width*height in a text file
-        self.layout = ([Tile(None), Tile(None), Tile(None), Tile(None), Tile(None)],
-                       [Tile(None), Tile(None), Tile(None), Tile(None), Tile(None)],
-                       [Tile(None), Tile(None), Tile(None), Tile(None), Tile(None)],
-                       [Tile(None), Tile(None), Tile(None), Tile(None), Tile(None)],
-                       [Tile(None), Tile(None), Tile(None), Tile(None), Tile(None)])
+        self.layout = [[Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1])]
         self.p = Player(self.player_coords[0], self.player_coords[1])
         self.place_objs()
 
@@ -52,6 +49,11 @@ class Board:
         self.layout[current[0]][current[1]].change_contents(None)
         self.layout[new[0]][new[1]].change_contents(box)
 
+    def reset(self):
+        self.layout = ([Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1]))
+        self.p = Player(self.player_coords[0], self.player_coords[1])
+        self.place_objs()
+
     def events(self):
         # Go through every box in the layout, change their valid_moves
         self.win = True
@@ -67,9 +69,12 @@ class Board:
         self.p.update_valid_moves(self.layout)
         self.valid_moves = self.p.get_valid_moves()
         while True:
-            direction = str(input('udlr, or 0 to exit: '))
+            direction = str(input('udlr, reset to reset, or 0 to exit: '))
             if direction == '0':
                 return True
+            elif direction == 'reset':
+                self.reset()
+                return False
             elif direction in self.valid_moves:
                 self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction), direction)
                 # Check layout after moving
