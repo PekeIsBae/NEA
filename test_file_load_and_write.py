@@ -1,9 +1,14 @@
 # Simulate a Sokoban level fully with a pre-made level hard-written in code
 
+import json
+
 class Game:
 
+    def __init__(self, level):
+        self.level = level
+
     def start(self):
-        self.b = Board()
+        self.b = Board(self.level)
         self.mainloop()
 
     def mainloop(self):
@@ -15,17 +20,21 @@ class Game:
 
 class Board:
 
-    def __init__(self):
-        # Coordinates will later be read from text file
-        self.grid_dimensions = (5, 5)
-        self.wall_coords = [(0, 1), (0, 3)]
-        self.box_coords = [(2, 1), (2, 3)]
-        self.gtile_coords = [(4, 0), (4, 4)]
-        self.player_coords = (2, 2)
-        # This will be given as width*height in a text file
+    def __init__(self, level):
+        # Read the level data from the json file
+        self.level_data = self.parse_level_data(level)
+        self.grid_dimensions = self.level_data['grid_dimensions']
+        self.player_coords = self.level_data['player_coords']
+        self.wall_coords = self.level_data['wall_coords']
+        self.box_coords = self.level_data['box_coords']
+        self.gtile_coords = self.level_data['gtile_coords']
         self.layout = [[Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1])]
         self.p = Player(self.player_coords[0], self.player_coords[1])
         self.place_objs()
+
+    def parse_level_data(self, level):
+        with open(f'./levels/{level}.txt') as file:
+            return json.load(file)
 
     def place_objs(self):
         # Places objects on grid
@@ -78,8 +87,8 @@ class Board:
             elif direction in self.valid_moves:
                 self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction), direction)
                 # Check layout after moving
-                # for row in self.layout:
-                #    print(list(map(lambda x: x.get_contents(), row)))
+                for row in self.layout:
+                   print(list(map(lambda x: x.get_contents(), row)))
                 # Check type of tile in layout
                 # for row in self.layout:
                 #    print(row)
@@ -196,5 +205,5 @@ class Wall:
 
 
 if __name__ == '__main__':
-    g = Game()
+    g = Game('level')
     g.start()
