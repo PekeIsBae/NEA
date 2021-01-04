@@ -1,6 +1,43 @@
 # Simulate a Sokoban level fully with a pre-made level hard-written in code
 
 import json
+import os
+
+class PySoko:
+    pass
+
+class MainMenu:
+
+    def __init__(self):
+        self.main_menu_mainloop()
+
+    def get_levels(self):
+        return os.listdir('./levels')
+
+    def display_menu(self, levels):
+        for counter, level in enumerate(levels):
+            print(f'{counter}. {level}')
+        self.choice = str(input('Choose a level by their numbers, exit ("e") or create a new level ("c"): '))
+        if self.choice == 'c':
+            print('WIP')
+            return False
+        elif self.choice == 'e':
+            return True
+        try:
+            level_numb = int(self.choice)
+            if level_numb in list(range(len(levels))):
+                self.g = Game(levels[int(self.choice)])
+                self.g.start()
+                return False
+        except ValueError:
+            return False
+
+    def main_menu_mainloop(self):
+        self.done = False
+        while not self.done:
+            all_levels = self.get_levels()
+            self.done = self.display_menu(all_levels)
+
 
 class Game:
 
@@ -9,13 +46,12 @@ class Game:
 
     def start(self):
         self.b = Board(self.level)
-        self.mainloop()
+        self.game_mainloop()
 
-    def mainloop(self):
-        done = False
-        while not done:
-            done = self.b.events()
-        exit()
+    def game_mainloop(self):
+        self.done = False
+        while not self.done:
+            self.done = self.b.events()
 
 
 class Board:
@@ -33,7 +69,7 @@ class Board:
         self.place_objs()
 
     def parse_level_data(self, level):
-        with open(f'./levels/{level}.txt') as file:
+        with open(f'./levels/{level}') as file:
             return json.load(file)
 
     def place_objs(self):
@@ -205,5 +241,4 @@ class Wall:
 
 
 if __name__ == '__main__':
-    g = Game('level')
-    g.start()
+    m = MainMenu()

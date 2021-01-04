@@ -1,0 +1,7 @@
+{
+    "grid_dimensions": [5, 5],
+    "player_coords": [2, 2],
+    "wall_coords": [[0, 1], [0, 3]],
+    "box_coords": [[2, 1], [2, 3]],
+    "gtile_coords": [[4, 0], [4, 4]]
+}
