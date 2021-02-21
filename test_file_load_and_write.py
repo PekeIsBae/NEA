@@ -64,6 +64,9 @@ class Board:
         self.wall_coords = self.level_data['wall_coords']
         self.box_coords = self.level_data['box_coords']
         self.gtile_coords = self.level_data['gtile_coords']
+        # 2D array: [vector of the move, box that was pushed on that move, otherwise None]
+        self.history = []
+        self.history_offset = 1
         self.layout = [[Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1])]
         self.p = Player(self.player_coords[0], self.player_coords[1])
         self.place_objs()
@@ -82,20 +85,34 @@ class Board:
             self.layout[coord[0]][coord[1]] = Goal_Tile(None)
         self.layout[self.player_coords[0]][self.player_coords[1]].change_contents(self.p)
 
-    def move_player(self, current, new, direction):
+    def move_player(self, current, new, direction, record):
         self.layout[current[0]][current[1]].change_contents(None)
         # If the place the player moves to has a box in it, move that box in the same direction
         if type(self.layout[new[0]][new[1]].get_contents()) is Box:
-            self.box_to_move = self.layout[new[0]][new[1]].get_contents()
-            self.move_box(self.box_to_move.get_curr_pos(), self.box_to_move.get_new_pos(direction), self.box_to_move)
+            self.box = self.layout[new[0]][new[1]].get_contents()
+            if record:
+                self.history.append([direction, self.box])
+            self.move_box(self.box.get_curr_pos(), self.box.get_new_pos(direction), self.box)
+        else:
+            if record:
+                self.history.append([direction, None])
         self.layout[new[0]][new[1]].change_contents(self.p)
 
     def move_box(self, current, new, box):
         self.layout[current[0]][current[1]].change_contents(None)
         self.layout[new[0]][new[1]].change_contents(box)
 
+    def undo(self, offset):
+        self.move_data = self.history[len(self.history) - offset]
+        self.reverse_move = self.p.get_direction(list(map(lambda x: x*-1, self.p.get_vector(self.move_data[0]))))
+        self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(self.reverse_move), self.reverse_move, False)
+        if self.move_data[1]:
+            self.box = self.move_data[1]
+            self.move_box(self.box.get_curr_pos(), self.box.get_new_pos(self.reverse_move), self.box)
+
     def reset(self):
-        self.layout = ([Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1]))
+        self.history = []
+        self.layout = [[Tile(None) for x in range(self.grid_dimensions[0])] for y in range(self.grid_dimensions[1])]
         self.p = Player(self.player_coords[0], self.player_coords[1])
         self.place_objs()
 
@@ -114,17 +131,32 @@ class Board:
         self.p.update_valid_moves(self.layout)
         self.valid_moves = self.p.get_valid_moves()
         while True:
-            direction = str(input('udlr, reset to reset, or 0 to exit: '))
+            direction = str(input('udlr, reset to reset, undo to undo, or 0 to exit: '))
             if direction == '0':
                 return True
             elif direction == 'reset':
                 self.reset()
                 return False
-            elif direction in self.valid_moves:
-                self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction), direction)
-                # Check layout after moving
+            elif direction == 'undo':
+                if self.history_offset > len(self.history):
+                    print('No moves left to undo')
+                    return False
+                self.undo(self.history_offset)
+                self.history_offset += 1
                 for row in self.layout:
                    print(list(map(lambda x: x.get_contents(), row)))
+                print(self.history)
+                return False
+            elif direction in self.valid_moves:
+                # On the player inputting a move, all history that was undo'd is removed
+                self.history = self.history[0:len(self.history) - (self.history_offset - 1)]
+                self.history_offset = 1
+                self.move_player(self.p.get_curr_pos(), self.p.get_new_pos(direction), direction, True)
+                # Check layout after moving
+                for row in self.layout:
+                    print(list(map(lambda x: x.get_contents(), row)))
+                # Check history
+                # print(self.history)
                 # Check type of tile in layout
                 # for row in self.layout:
                 #    print(row)
@@ -146,6 +178,12 @@ class Moving:
         self.dirs = ('u', 'd', 'l', 'r')
         self.movement_vectors = ([-1, 0], [1, 0], [0, -1], [0, 1])
         self.valid_moves = []
+
+    def get_vector(self, direction):
+        return self.movement_vectors[self.dirs.index(direction)]
+
+    def get_direction(self, vector):
+        return self.dirs[self.movement_vectors.index(vector)]
 
     def get_curr_pos(self):
         return self.posy, self.posx
