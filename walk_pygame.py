@@ -4,6 +4,7 @@ import pygame as pg
 import tkinter as tk
 # Missing pixels between tiles solved using math.ciel, but this may cause problems with collisions down the line
 import math
+import json
 
 '''
 Conditions for a valid level:
@@ -59,11 +60,11 @@ class MainMenu:
         self.delete_b.grid(padx=5, pady=5, row=1, column=1)
 
     def play(self):
-        self.game = Game()
+        self.game = Game("new_lvl.txt")
 
 class Game:
 
-    def __init__(self):
+    def __init__(self, level_file):
         pg.init()
         pg.display.set_caption('walk')
         self.screen = pg.display.set_mode(SCREEN_DIMS)
@@ -71,13 +72,18 @@ class Game:
         self.clock = pg.time.Clock()
         self.done = False
         pg.key.set_repeat(400, 50)
-        self.b = Board()
+        self.level_data = self.parse_level_data(level_file)
+        self.b = Board(self.level_data)
 
         self.undo_b = pg.Rect(SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(1/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
         self.restart_b = pg.Rect(SCREEN_DIMS[0] * 0.84, SCREEN_DIMS[1] * (3/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
         self.quit_b = pg.Rect(SCREEN_DIMS[0] * 0.84, SCREEN_DIMS[1] * (5/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
 
         self.game_mainloop()
+
+    def parse_level_data(self, level_file):
+        with open(f'./levels/{level_file}') as file:
+            return json.load(file)
 
     def game_mainloop(self):
 
@@ -101,7 +107,7 @@ class Game:
                     if self.undo_b.collidepoint(self.mouse_point):
                         self.b.undo()
                     if self.restart_b.collidepoint(self.mouse_point):
-                        self.b = Board()
+                        self.b = Board(self.level_data)
                     if self.quit_b.collidepoint(self.mouse_point):
                         self.done = True
 
@@ -118,22 +124,18 @@ class Game:
 
 class Board(pg.Surface):
 
-    def __init__(self):
+    def __init__(self, level_data):
         super().__init__((BOARDW, BOARDH))
 
         # Possibly add a feature that adds void tiles and aligns the level so tile dims are consistent?
         # This feature may be a part of level creation
         # After a level is created, the game my add void blocks around the level to keep tile sizes square looking
-        self.map = ['0####0',
-                    '#....#',
-                    '#x...#',
-                    '#....#',
-                    '#x..x#',
-                    '0####0']
+
+        self.map = level_data['map']
 
         # Coordinates for interactive items (column, row (top to bottom))
-        self.player_coords = (2, 1)
-        self.box_coords = [(3, 4), (3, 2), (2, 3)]
+        self.player_coords = level_data['player_coords']
+        self.box_coords = level_data['box_coords']
 
         self.boxes = []
         self.gtiles = []
