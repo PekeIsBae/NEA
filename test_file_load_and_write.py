@@ -12,7 +12,7 @@ class MainMenu:
         self.main_menu_mainloop()
 
     def get_levels(self):
-        return os.listdir('./levels')
+        return os.listdir('./old_levels')
 
     def display_menu(self, levels):
         for counter, level in enumerate(levels):

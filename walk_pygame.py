@@ -1,8 +1,7 @@
 # Play a Sokoban game made using PyGame
 
 import pygame as pg
-import tkinter as tk
-# Missing pixels between tiles solved using math.ciel, but this may cause problems with collisions down the line
+import os
 import math
 import json
 
@@ -20,64 +19,167 @@ GTILE_COLOUR = (93, 187, 99)  # https://www.color-meanings.com/shades-of-green-c
 PLAYER_COLOUR = (178, 34, 34)  # https://graf1x.com/shades-of-red-color-palette-hex-rgb-code/ (Fire Brick)
 BOX_COLOUR = (67, 38, 22)  # https://www.color-meanings.com/shades-of-brown-color-names-html-hex-rgb-codes/ (Walnut)
 WALL_COLOUR = (72, 72, 72)  # http://ezavada.com/pdg/javascript/html/classpdg_1_1_color.html ('#484848')
+LEVELBUTTON_COLOUR = (255, 255, 255)
+
+BLACK = (0, 0, 0)
+
+FPS = 30
 
 # Screen and Board dimension constants
 SCREEN_DIMS = (800, 600)
 BOARD_OFFSET = (10, 10)
-BUTTON_SIZE = (80, 80)
+
+SCROLL_SPD = 10
+
+# Button dimensions and positioning
+GAME_BUTTON_SIZE = (80, 80)
+# Main Menu
+PLAY_DIMS = (440, 375, 340, 200)
+CREATE_DIMS = (20, 480, 400, 100)
+LEVEL_SELECT_DIMS = (400, 450)
+LEVEL_SELECT_OFFSET = (20, 20)
+PREVIEW_DIMS = (340, 340)
+PREVIEW_OFFSET = (440, 25)
+# Game Screen buttons
+UNDO_DIMS = (SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(1/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+RESTART_DIMS = (SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(3/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+QUIT_DIMS = (SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(5/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+
 # The size of the board depends on how large the screen is
 BOARDW = SCREEN_DIMS[0] / 1.3
 BOARDH = SCREEN_DIMS[1] - (BOARD_OFFSET[0]*2)
 
+# Instead of the original layout, every button for a level will have a delete, edit and leaderboard icon on it
+# These icons do the appropriate actions for their level
+
 
 class MainMenu:
 
-    def __init__(self, root):
-        self.root = root
-        self.root.title("PySoko")
-        self.create_widgets()
+    def __init__(self):
+        pg.init()
+        pg.display.set_caption('PySoko')
+        self.screen = pg.display.set_mode(SCREEN_DIMS)
+        self.screen.fill(SCREEN_COLOUR)
+        self.clock = pg.time.Clock()
+        self.done = False
 
-    def create_widgets(self):
-        self.levels_f = tk.Frame(self.root)
-        self.levels_f.pack(padx=10, pady=10, side='left')
-        self.levels_c = tk.Canvas(self.levels_f)
-        self.levels_c.pack(side='top')
-        self.create_b = tk.Button(self.levels_f, width=50, height=5, text='Create new level')
-        self.create_b.pack(side='bottom')
-        self.levelops_f = tk.Frame(self.root)
-        self.levelops_f.pack(side='right')
-        self.lvlpreview_c = tk.Canvas(self.levelops_f, width=250, height=250)
-        self.lvlpreview_c.pack()
-        self.levelops_buttons_f = tk.Frame(self.levelops_f, padx=10, pady=10)
-        self.levelops_buttons_f.pack(padx=5, pady=5, side='bottom')
-        self.play_b = tk.Button(self.levelops_buttons_f, width=15, height=4, text='Play', command=self.play)
-        self.play_b.grid(padx=5, pady=5, row=0, column=0)
-        self.edit_b = tk.Button(self.levelops_buttons_f, width=15, height=4, text='Edit')
-        self.edit_b.grid(padx=5, pady=5, row=0, column=1)
-        self.leader_b = tk.Button(self.levelops_buttons_f, width=15, height=4, text='Leaderboard')
-        self.leader_b.grid(padx=5, pady=5, row=1, column=0)
-        self.delete_b = tk.Button(self.levelops_buttons_f, width=15, height=4, text='Delete')
-        self.delete_b.grid(padx=5, pady=5, row=1, column=1)
+        self.selected = None
 
-    def play(self):
-        self.game = Game("new_lvl.txt")
+        self.level_select = pg.Surface(LEVEL_SELECT_DIMS)
+        self.preview = pg.Surface(PREVIEW_DIMS)
+        self.create_b = pg.Rect(CREATE_DIMS)
+        self.play_b = pg.Rect(PLAY_DIMS)
+
+        self.scroll_offset = 0
+        self.max_scroll_offset = -430
+
+        self.level_buttons_group = pg.sprite.Group()
+        self.level_buttons = []
+
+        self.make_level_buttons()
+
+        self.menu_mainloop()
+
+    def get_levels(self):
+        return os.listdir('./levels')
+
+    def make_level_buttons(self):
+        for numb, level in enumerate(self.get_levels()):
+            self.button = LevelButton(numb, level)
+            self.level_buttons_group.add(self.button)
+            self.level_buttons.append(self.button)
+            self.max_scroll_offset += 120
+
+    def menu_mainloop(self):
+
+        while not self.done:
+
+            self.clock.tick(FPS)
+
+            for event in pg.event.get():
+                if event.type == pg.MOUSEMOTION:
+                    self.mouse_point = event.pos
+                if event.type == pg.QUIT:
+                    self.done = True
+                if event.type == pg.MOUSEWHEEL:
+                    if self.level_select.get_rect().collidepoint(self.mouse_point):
+                        if -self.max_scroll_offset <= (self.scroll_offset + SCROLL_SPD * (event.y)) <= 0:
+                            self.level_select.fill(BLACK)
+                            self.level_buttons_group.update(event.y)
+                            # Draw sprites onto the empty surface immediately after update to avoid flicker
+                            self.level_buttons_group.draw(self.level_select)
+                            self.scroll_offset += SCROLL_SPD * event.y
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    # '1' indicates a left click
+                    if event.button == 1:
+                        if self.level_select.get_rect().collidepoint(self.mouse_point):
+                            for button in self.level_buttons:
+                                if button.rect.collidepoint(self.mouse_point):
+                                    self.selected = button
+                        if self.play_b.collidepoint(self.mouse_point) and self.selected:
+                            self.game = Game(self.selected.get_filename(), self.selected.get_display_name())
+
+            self.screen.fill(SCREEN_COLOUR)
+
+            self.screen.blit(self.level_select, LEVEL_SELECT_OFFSET)
+            self.screen.blit(self.preview, PREVIEW_OFFSET)
+
+            self.level_buttons_group.draw(self.level_select)
+
+            pg.draw.rect(self.screen, BLACK, self.create_b)
+            pg.draw.rect(self.screen, BLACK, self.play_b)
+
+            pg.display.flip()
+
+        pg.quit()
+
+
+class LevelButton(pg.sprite.Sprite):
+
+    def __init__(self, row, filename):
+        super().__init__()
+        self.image = pg.Surface((360, 100))
+        self.image.fill(LEVELBUTTON_COLOUR)
+
+        self.font = pg.font.SysFont('Times New Roman', 24)
+        self.filename = filename
+        self.display_name = self.display_name(self.filename)
+        self.text = self.font.render(self.display_name, True, BLACK)
+        self.image.blit(self.text, (10, 10))
+
+        self.rect = self.image.get_rect()
+        self.rect.x = 20
+        self.rect.y = (row * 100) + ((row + 1) * 20)
+
+    def get_display_name(self):
+        return self.display_name
+
+    def get_filename(self):
+        return self.filename
+
+    def display_name(self, filename):
+        return filename[0:len(filename)-4].replace('_', ' ')
+
+    def update(self, y):
+        self.rect.y += SCROLL_SPD * y
+
 
 class Game:
 
-    def __init__(self, level_file):
-        pg.init()
-        pg.display.set_caption('walk')
+    def __init__(self, level_file, name):
+        pg.display.set_caption(name)
         self.screen = pg.display.set_mode(SCREEN_DIMS)
         self.screen.fill(SCREEN_COLOUR)
         self.clock = pg.time.Clock()
         self.done = False
         pg.key.set_repeat(400, 50)
+
         self.level_data = self.parse_level_data(level_file)
         self.b = Board(self.level_data)
 
-        self.undo_b = pg.Rect(SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(1/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
-        self.restart_b = pg.Rect(SCREEN_DIMS[0] * 0.84, SCREEN_DIMS[1] * (3/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
-        self.quit_b = pg.Rect(SCREEN_DIMS[0] * 0.84, SCREEN_DIMS[1] * (5/7), BUTTON_SIZE[0], BUTTON_SIZE[1])
+        self.undo_b = pg.Rect(UNDO_DIMS)
+        self.restart_b = pg.Rect(RESTART_DIMS)
+        self.quit_b = pg.Rect(QUIT_DIMS)
 
         self.game_mainloop()
 
@@ -94,7 +196,9 @@ class Game:
 
         while not self.done:
 
-            self.clock.tick(30)
+            pg.display.flip()
+
+            self.clock.tick(FPS)
 
             for event in pg.event.get():
                 if event.type == pg.QUIT:
@@ -102,24 +206,23 @@ class Game:
                 if event.type == pg.KEYDOWN:
                     self.done = self.b.events(event.__dict__['key'])
                 if event.type == pg.MOUSEBUTTONDOWN:
-                    self.mouse_point = event.pos
-                    # The mouse can only be in one place at a time
-                    if self.undo_b.collidepoint(self.mouse_point):
-                        self.b.undo()
-                    if self.restart_b.collidepoint(self.mouse_point):
-                        self.b = Board(self.level_data)
-                    if self.quit_b.collidepoint(self.mouse_point):
-                        self.done = True
+                    if event.button == 1:
+                        self.mouse_point = event.pos
+                        if self.undo_b.collidepoint(self.mouse_point):
+                            self.b.undo()
+                        if self.restart_b.collidepoint(self.mouse_point):
+                            self.b = Board(self.level_data)
+                        if self.quit_b.collidepoint(self.mouse_point):
+                            self.done = True
 
             self.screen.blit(self.b, BOARD_OFFSET)
 
-            pg.draw.rect(self.screen, (0, 0, 0), self.undo_b)
-            pg.draw.rect(self.screen, (0, 0, 0), self.restart_b)
-            pg.draw.rect(self.screen, (0, 0, 0), self.quit_b)
+            # Draw game screen buttons
+            pg.draw.rect(self.screen, BLACK, self.undo_b)
+            pg.draw.rect(self.screen, BLACK, self.restart_b)
+            pg.draw.rect(self.screen, BLACK, self.quit_b)
 
             pg.display.flip()
-
-        pg.quit()
 
 
 class Board(pg.Surface):
@@ -214,7 +317,7 @@ class Board(pg.Surface):
 
     def events(self, key):
         # Wipe the screen
-        self.fill((0, 0, 0))
+        self.fill(BLACK)
         # Only need to update variables if the move was valid
         if key in self.p.get_valid_moves().keys():
             self.history = self.history[0:len(self.history) - (self.history_offset - 1)]
@@ -347,6 +450,4 @@ class GTile(Tile):
 
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    game = MainMenu(root)
-    root.mainloop()
+    game = MainMenu()
