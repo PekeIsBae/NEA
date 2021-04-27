@@ -118,6 +118,7 @@ class MainMenu:
                                     self.selected = button
                         if self.play_b.collidepoint(self.mouse_point) and self.selected:
                             self.game = Game(self.selected.get_filename(), self.selected.get_display_name())
+                            pg.display.set_caption('PySoko')
 
             self.screen.fill(SCREEN_COLOUR)
 
