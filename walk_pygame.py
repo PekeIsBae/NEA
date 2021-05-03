@@ -19,8 +19,7 @@ GTILE_COLOUR = (93, 187, 99)  # https://www.color-meanings.com/shades-of-green-c
 PLAYER_COLOUR = (178, 34, 34)  # https://graf1x.com/shades-of-red-color-palette-hex-rgb-code/ (Fire Brick)
 BOX_COLOUR = (67, 38, 22)  # https://www.color-meanings.com/shades-of-brown-color-names-html-hex-rgb-codes/ (Walnut)
 WALL_COLOUR = (72, 72, 72)  # http://ezavada.com/pdg/javascript/html/classpdg_1_1_color.html ('#484848')
-LEVELBUTTON_COLOUR = (255, 255, 255)
-
+LEVEL_BUTTON_COLOUR = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 FPS = 30
@@ -37,7 +36,9 @@ GAME_BUTTON_SIZE = (80, 80)
 PLAY_DIMS = (440, 375, 340, 200)
 CREATE_DIMS = (20, 480, 400, 100)
 LEVEL_SELECT_DIMS = (400, 450)
-LEVEL_SELECT_OFFSET = (20, 20)
+LEVEL_BUTTON_DIMS = (360, 100)
+LEVEL_BUTTON_OFFSET = (20, 20)
+LEVEL_BUTTON_TEXT_OFFSET = (10, 10)
 PREVIEW_DIMS = (340, 340)
 PREVIEW_OFFSET = (440, 25)
 # Game Screen buttons
@@ -65,16 +66,19 @@ class MainMenu:
 
         self.selected = None
 
-        self.level_select = pg.Surface(LEVEL_SELECT_DIMS)
-        self.preview = pg.Surface(PREVIEW_DIMS)
-        self.create_b = pg.Rect(CREATE_DIMS)
-        self.play_b = pg.Rect(PLAY_DIMS)
-
         self.scroll_offset = 0
         self.max_scroll_offset = -430
 
         self.level_buttons_group = pg.sprite.Group()
         self.level_buttons = []
+        self.menu_buttons_group = pg.sprite.Group()
+
+        self.level_select = GameSprite(20, 20, 400, 450)
+        self.preview = pg.Surface(PREVIEW_DIMS)
+        self.create_b = pg.Rect(CREATE_DIMS)
+        self.create_b = GameSprite(20, 480, 400, 100)
+        self.play_b = GameSprite(440, 375, 340, 200)
+        self.menu_buttons_group.add(self.level_select, self.create_b, self.play_b)
 
         self.make_level_buttons()
 
@@ -84,11 +88,28 @@ class MainMenu:
         return os.listdir('./levels')
 
     def make_level_buttons(self):
+        self.level_select.image.fill(BLACK)
+        self.level_buttons_group = pg.sprite.Group()
+        self.level_buttons = []
+        self.scroll_offset = 0
+        self.max_scroll_offset = -430
         for numb, level in enumerate(self.get_levels()):
             self.button = LevelButton(numb, level)
             self.level_buttons_group.add(self.button)
             self.level_buttons.append(self.button)
-            self.max_scroll_offset += 120
+            self.max_scroll_offset += LEVEL_BUTTON_DIMS[1] + 20
+        self.level_buttons_group.draw(self.level_select.image)
+
+    def scroll_menu(self, dir):
+        if -self.max_scroll_offset <= (self.scroll_offset + SCROLL_SPD * dir) <= 0:
+            self.level_select.image.fill(BLACK)
+            self.level_buttons_group.update(dir)
+            # Draw sprites onto the empty surface immediately after update to avoid flicker
+            self.scroll_offset += SCROLL_SPD * dir
+        self.level_buttons_group.draw(self.level_select.image)
+
+    def localise_pos_level_select(self, pos):
+        return pos[0] - 20, pos[1] - 20
 
     def menu_mainloop(self):
 
@@ -102,33 +123,38 @@ class MainMenu:
                 if event.type == pg.QUIT:
                     self.done = True
                 if event.type == pg.MOUSEWHEEL:
-                    if self.level_select.get_rect().collidepoint(self.mouse_point):
-                        if -self.max_scroll_offset <= (self.scroll_offset + SCROLL_SPD * (event.y)) <= 0:
-                            self.level_select.fill(BLACK)
-                            self.level_buttons_group.update(event.y)
-                            # Draw sprites onto the empty surface immediately after update to avoid flicker
-                            self.level_buttons_group.draw(self.level_select)
-                            self.scroll_offset += SCROLL_SPD * event.y
+                    if self.level_select.rect.collidepoint(self.mouse_point):
+                        self.scroll_menu(event.y)
                 if event.type == pg.MOUSEBUTTONDOWN:
                     # '1' indicates a left click
                     if event.button == 1:
-                        if self.level_select.get_rect().collidepoint(self.mouse_point):
+                        if self.level_select.rect.collidepoint(self.mouse_point):
+                            # Make the mouse position be relative to the level_select sprite
+                            self.local_pos = self.localise_pos_level_select(self.mouse_point)
                             for button in self.level_buttons:
-                                if button.rect.collidepoint(self.mouse_point):
+                                if button.rect.collidepoint(self.local_pos):
                                     self.selected = button
-                        if self.play_b.collidepoint(self.mouse_point) and self.selected:
+                                    # Make the mouse position be relative to the button selected
+                                    self.button_local_pos = button.localise_pos(self.local_pos)
+                                    if button.check_option_pressed(self.button_local_pos):
+                                        self.option_pos = button.check_option_pressed(self.button_local_pos).rect.x
+                                        if self.option_pos == 10:
+                                            os.unlink(f'./levels/{button.filename}')
+                                            self.make_level_buttons()
+                                        elif self.option_pos == 60:
+                                            print('Edit')
+                                        elif self.option_pos == 110:
+                                            print('Leader')
+                        if self.play_b.rect.collidepoint(self.mouse_point) and self.selected:
                             self.game = Game(self.selected.get_filename(), self.selected.get_display_name())
                             pg.display.set_caption('PySoko')
 
             self.screen.fill(SCREEN_COLOUR)
 
-            self.screen.blit(self.level_select, LEVEL_SELECT_OFFSET)
             self.screen.blit(self.preview, PREVIEW_OFFSET)
 
-            self.level_buttons_group.draw(self.level_select)
-
-            pg.draw.rect(self.screen, BLACK, self.create_b)
-            pg.draw.rect(self.screen, BLACK, self.play_b)
+            self.menu_buttons_group.draw(self.screen)
+            self.level_buttons_group.draw(self.level_select.image)
 
             pg.display.flip()
 
@@ -139,18 +165,37 @@ class LevelButton(pg.sprite.Sprite):
 
     def __init__(self, row, filename):
         super().__init__()
-        self.image = pg.Surface((360, 100))
-        self.image.fill(LEVELBUTTON_COLOUR)
+        # Level button appearence
+        self.image = pg.Surface(LEVEL_BUTTON_DIMS)
+        self.image.fill(LEVEL_BUTTON_COLOUR)
 
+        # Draw level name of the level button
         self.font = pg.font.SysFont('Times New Roman', 24)
         self.filename = filename
         self.display_name = self.display_name(self.filename)
         self.text = self.font.render(self.display_name, True, BLACK)
-        self.image.blit(self.text, (10, 10))
+        self.image.blit(self.text, LEVEL_BUTTON_TEXT_OFFSET)
 
+        # Option buttons for delete, edit and leaderboard for each level button
+        self.option_buttons_group = pg.sprite.Group()
+        self.delete_b = GameSprite(10, 50, 40, 40)
+        self.edit_b = GameSprite(60, 50, 40, 40)
+        self.leader_b = GameSprite(110, 50, 40, 40)
+        self.option_buttons_group.add(self.delete_b, self.edit_b, self.leader_b)
+        self.option_buttons_group.draw(self.image)
+
+        # Level button positioning
         self.rect = self.image.get_rect()
-        self.rect.x = 20
-        self.rect.y = (row * 100) + ((row + 1) * 20)
+        self.rect.x = LEVEL_BUTTON_OFFSET[0]
+        self.rect.y = (row * LEVEL_BUTTON_DIMS[1]) + ((row + 1) * LEVEL_BUTTON_OFFSET[1])
+
+    def localise_pos(self, pos):
+        return pos[0] - self.rect.x, pos[1] - self.rect.y
+
+    def check_option_pressed(self, pos):
+        for button in self.option_buttons_group:
+            if button.rect.collidepoint(pos[0], pos[1]):
+                return button
 
     def get_display_name(self):
         return self.display_name
@@ -178,9 +223,11 @@ class Game:
         self.level_data = self.parse_level_data(level_file)
         self.b = Board(self.level_data)
 
-        self.undo_b = pg.Rect(UNDO_DIMS)
-        self.restart_b = pg.Rect(RESTART_DIMS)
-        self.quit_b = pg.Rect(QUIT_DIMS)
+        self.game_buttons_group = pg.sprite.Group()
+        self.undo_b = GameSprite(SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(1/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+        self.restart_b = GameSprite(SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(3/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+        self.quit_b = GameSprite(SCREEN_DIMS[0]*0.84, SCREEN_DIMS[1]*(5/7), GAME_BUTTON_SIZE[0], GAME_BUTTON_SIZE[1])
+        self.game_buttons_group.add(self.undo_b, self.restart_b, self.quit_b)
 
         self.game_mainloop()
 
@@ -209,19 +256,17 @@ class Game:
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         self.mouse_point = event.pos
-                        if self.undo_b.collidepoint(self.mouse_point):
+                        if self.undo_b.rect.collidepoint(self.mouse_point):
                             self.b.undo()
-                        if self.restart_b.collidepoint(self.mouse_point):
+                        if self.restart_b.rect.collidepoint(self.mouse_point):
                             self.b = Board(self.level_data)
-                        if self.quit_b.collidepoint(self.mouse_point):
+                        if self.quit_b.rect.collidepoint(self.mouse_point):
                             self.done = True
 
             self.screen.blit(self.b, BOARD_OFFSET)
 
             # Draw game screen buttons
-            pg.draw.rect(self.screen, BLACK, self.undo_b)
-            pg.draw.rect(self.screen, BLACK, self.restart_b)
-            pg.draw.rect(self.screen, BLACK, self.quit_b)
+            self.game_buttons_group.draw(self.screen)
 
             pg.display.flip()
 
@@ -336,17 +381,20 @@ class Board(pg.Surface):
         return True
 
 
-class Tile_Obj(pg.sprite.Sprite):
+class GameSprite(pg.sprite.Sprite):
 
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, sprite=None):
         super().__init__()
-        self.image = pg.Surface((w, h))
+        if sprite is None:
+            self.image = pg.Surface((w, h))
+        else:
+            self.image = pg.image.load(f'images/{sprite}').convert()
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
 
 
-class Moving(Tile_Obj):
+class Moving(GameSprite):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
@@ -423,14 +471,14 @@ class Box(Moving):
         self.image.fill(BOX_COLOUR)
 
 
-class Wall(Tile_Obj):
+class Wall(GameSprite):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
         self.image.fill(WALL_COLOUR)
 
 
-class Tile(Tile_Obj):
+class Tile(GameSprite):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
