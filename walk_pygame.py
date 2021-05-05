@@ -75,7 +75,6 @@ class MainMenu:
 
         self.level_select = GameSprite(20, 20, 400, 450)
         self.preview = pg.Surface(PREVIEW_DIMS)
-        self.create_b = pg.Rect(CREATE_DIMS)
         self.create_b = GameSprite(20, 480, 400, 100)
         self.play_b = GameSprite(440, 375, 340, 200)
         self.menu_buttons_group.add(self.level_select, self.create_b, self.play_b)
@@ -145,6 +144,9 @@ class MainMenu:
                                             print('Edit')
                                         elif self.option_pos == 110:
                                             print('Leader')
+                        if self.create_b.rect.collidepoint(self.mouse_point):
+                            self.create = Edit()
+                            pg.display.set_caption('PySoko')
                         if self.play_b.rect.collidepoint(self.mouse_point) and self.selected:
                             self.game = Game(self.selected.get_filename(), self.selected.get_display_name())
                             pg.display.set_caption('PySoko')
@@ -210,6 +212,36 @@ class LevelButton(pg.sprite.Sprite):
         self.rect.y += SCROLL_SPD * y
 
 
+class Edit:
+
+    def __init__(self, level_file=None):
+        pg.display.set_caption('Create new level')
+        self.screen = pg.display.set_mode(SCREEN_DIMS)
+        self.screen.fill(SCREEN_COLOUR)
+        self.clock = pg.time.Clock()
+        self.done = False
+
+        self.editspace = EditSpace(SCREEN_DIMS[0]/2, SCREEN_DIMS[1]/2, 400, 400)
+        self.editspace_group = pg.sprite.Group()
+        self.editspace_group.add(self.editspace)
+
+        self.edit_mainloop()
+
+    def edit_mainloop(self):
+
+        while not self.done:
+
+            self.clock.tick(FPS)
+
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.done = True
+
+            self.editspace_group.draw(self.screen)
+
+            pg.display.flip()
+
+
 class Game:
 
     def __init__(self, level_file, name):
@@ -268,7 +300,7 @@ class Game:
             # Draw game screen buttons
             self.game_buttons_group.draw(self.screen)
 
-            pg.display.flip()
+            #pg.display.flip()
 
 
 class Board(pg.Surface):
@@ -392,6 +424,14 @@ class GameSprite(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
+
+class EditSpace(GameSprite):
+
+    def __init__(self, x, y, w, h):
+        super().__init__(x, y, w, h)
+        self.image.fill(BLACK)
+        self.rect.center = (x, y)
 
 
 class Moving(GameSprite):
