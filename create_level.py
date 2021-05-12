@@ -49,13 +49,12 @@ class GameSprite(pg.sprite.Sprite):
 
 class EditButton(GameSprite):
 
-    def __init__(self, x, y, w, h, paint, sprite=None):
+    def __init__(self, x, y, w, h, paint, sprite):
         super().__init__(x, y, w, h)
         self.paint = paint
         self.sprite = sprite
-        if self.sprite:
-            self.image = pg.image.load(f'./images/{self.sprite}').convert()
-            self.image = pg.transform.scale(self.image, (w, h))
+        self.image = pg.image.load(f'./images/{self.sprite}').convert()
+        self.image = pg.transform.scale(self.image, (w, h))
 
     def get_paint(self):
         return self.paint
@@ -76,22 +75,47 @@ class EmptySlot(GameSprite):
         self.rect.center = (x + w/2, y + h/2)
         self.edge = edge
         self.contents = None
+        self.goal_tile = False
         self.row = row
         self.col = col
         self.w = w
         self.h = h
-        if self.edge:
-            self.image.fill((0, 255, 0))
+        self.change_sprite('tile')
+
+    def change_sprite(self, sprite):
+        self.image = pg.transform.scale(pg.image.load(f'./images/{sprite}.png').convert(), (self.w, self.h))
 
     def get_coords(self):
         return self.row, self.col
 
+    def get_goal_tile(self):
+        return self.goal_tile
+
     def get_contents(self):
         return self.contents
 
-    def update_contents(self, item):
+    def erase_contents(self):
+        self.contents = None
+        if self.goal_tile:
+            self.change_sprite('goal_tile')
+        else:
+            self.change_sprite('tile')
+
+    def goal_tile_on(self):
+        self.goal_tile = True
+        self.change_sprite('goal_tile')
+
+    def goal_tile_off(self):
+        self.goal_tile = False
+        self.change_sprite('tile')
+
+    def add_fitted_box(self):
+        self.contents = 'box'
+        self.change_sprite('fitted_box')
+
+    def add_contents(self, item):
         self.contents = item
-        self.image = pg.transform.scale(pg.image.load(f'./images/wall.png').convert(), (self.w, self.h))
+        self.change_sprite(item)
 
 
 class Workspace(GameSprite):
@@ -126,14 +150,28 @@ class Workspace(GameSprite):
     def remove_current_player(self):
         for slot in self.empty_slots_group:
             if slot.get_contents() == 'player':
-                slot.update_contents(None)
+                slot.erase_contents()
 
     def events(self, mouse_point, paint):
-        if paint == 'player':
-            self.remove_current_player()
         for slot in self.empty_slots_group:
             if slot.rect.collidepoint(self.localise_pos(mouse_point)):
-                slot.update_contents(paint)
+                if paint == 'eraser':
+                    if slot.get_goal_tile() and not slot.get_contents():
+                        slot.goal_tile_off()
+                    else:
+                        slot.erase_contents()
+                elif not slot.get_contents():
+                    if paint == 'goal_tile':
+                        slot.goal_tile_on()
+                    else:
+                        if slot.get_goal_tile() and paint == 'box':
+                            slot.add_fitted_box()
+                        elif not slot.get_goal_tile():
+                            if paint == 'player':
+                                self.remove_current_player()
+                                slot.add_contents(paint)
+                            else:
+                                slot.add_contents(paint)
 
         self.empty_slots_group.draw(self.image)
 
@@ -157,36 +195,42 @@ class Editor:
 
     def create_widgets(self):
         self.player_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y'], edit_cnfg['b_sizex'],
-                                   edit_cnfg['b_sizey'], 'player')
+                                   edit_cnfg['b_sizey'], 'player', 'player.png')
         self.box_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*2, edit_cnfg['b_sizex'],
-                                edit_cnfg['b_sizey'], 'box')
+                                edit_cnfg['b_sizey'], 'box', 'box.png')
         self.wall_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*3, edit_cnfg['b_sizex'],
                                  edit_cnfg['b_sizey'], 'wall', 'wall.png')
         self.gtile_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*4, edit_cnfg['b_sizex'],
-                                  edit_cnfg['b_sizey'], 'gtile')
+                                  edit_cnfg['b_sizey'], 'goal_tile', 'goal_tile.png')
 
         self.eraser_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y'], edit_cnfg['b_sizex'],
-                                   edit_cnfg['b_sizey'], None)
-        self.wipe_b = GameSprite(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*2, edit_cnfg['b_sizex'],
-                                 edit_cnfg['b_sizey'])
-        self.save_b = GameSprite(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*3, edit_cnfg['b_sizex'],
-                                 edit_cnfg['b_sizey'])
-        self.quit_b = GameSprite(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*4, edit_cnfg['b_sizex'],
-                                 edit_cnfg['b_sizey'])
+                                   edit_cnfg['b_sizey'], 'eraser', 'eraser.png')
+        self.reset_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*2, edit_cnfg['b_sizex'],
+                                 edit_cnfg['b_sizey'], None, 'reset.png')
+        self.save_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*3, edit_cnfg['b_sizex'],
+                                 edit_cnfg['b_sizey'], None, 'save.png')
+        self.quit_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*4, edit_cnfg['b_sizex'],
+                                 edit_cnfg['b_sizey'], None, 'quit.png')
 
         self.workspace = Workspace(edit_cnfg['wrk_x'], edit_cnfg['wrk_y'],
                                    edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.level_data)
 
-        self.palette_group = pg.sprite.Group()
-        self.palette_group.add(self.player_b, self.box_b, self.wall_b, self.gtile_b,
-                               self.eraser_b)
+        self.edit_group = pg.sprite.Group()
+        self.edit_group.add(self.player_b, self.box_b, self.wall_b, self.gtile_b,
+                            self.eraser_b, self.reset_b, self.save_b, self.quit_b)
 
         self.workspace_group = pg.sprite.Group()
         self.workspace_group.add(self.workspace)
 
+    def reset_board(self):
+        self.workspace_group = pg.sprite.Group()
+        self.workspace = Workspace(edit_cnfg['wrk_x'], edit_cnfg['wrk_y'],
+                                   edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.level_data)
+        self.workspace_group.add(self.workspace)
+
     def draw_groups(self):
         self.workspace_group.draw(self.screen)
-        self.palette_group.draw(self.screen)
+        self.edit_group.draw(self.screen)
 
     def mainloop(self):
 
@@ -200,9 +244,13 @@ class Editor:
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         self.mouse_point = event.pos
-                        for button in self.palette_group:
+                        for button in self.edit_group:
                             if button.rect.collidepoint(self.mouse_point):
                                 self.selected = button.get_paint()
+                        if self.reset_b.rect.collidepoint(self.mouse_point):
+                            self.reset_board()
+                        if self.quit_b.rect.collidepoint(self.mouse_point):
+                            self.done = True
                         if self.workspace.rect.collidepoint(self.mouse_point) and self.selected:
                             self.workspace.events(self.mouse_point, self.selected)
 

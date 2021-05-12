@@ -471,6 +471,7 @@ class Moving(GameSprite):
                 if self.newposx == box.rect.x and self.newposy == box.rect.y:
                     self.valid, self.box_pushed = self.assess_box_collision(key, box)
                     break
+            # TODO This does not keep the player in the board bounds, fix this
             if BOARDW <= self.newposx <= 0 or BOARDH <= self.newposy <= 0:
                 self.valid = False
             if self.valid:
@@ -495,7 +496,8 @@ class Player(Moving):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
-        self.image.fill(PLAYER_COLOUR)
+        #self.image.fill(PLAYER_COLOUR)
+        self.image = pg.transform.scale(pg.image.load('./images/player.png'), (w, h))
 
     def assess_box_collision(self, key, box):
         if key not in box.get_valid_moves():
@@ -508,21 +510,24 @@ class Box(Moving):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
-        self.image.fill(BOX_COLOUR)
+        #self.image.fill(BOX_COLOUR)
+        self.image = pg.transform.scale(pg.image.load('./images/box.png'), (w, h))
 
 
 class Wall(GameSprite):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
-        self.image.fill(WALL_COLOUR)
+        #self.image.fill(WALL_COLOUR)
+        self.image = pg.transform.scale(pg.image.load('./images/wall.png'), (w, h))
 
 
 class Tile(GameSprite):
 
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
-        self.image.fill(TILE_COLOUR)
+        #self.image.fill(TILE_COLOUR)
+        self.image = pg.transform.scale(pg.image.load('./images/tile.png'), (w, h))
 
 
 class GTile(Tile):
@@ -530,6 +535,7 @@ class GTile(Tile):
     def __init__(self, x, y, w, h):
         super().__init__(x, y, w, h)
         self.image.fill(GTILE_COLOUR)
+        self.image = pg.transform.scale(pg.image.load('./images/goal_tile.png'), (w, h))
 
     def check_filled(self, boxes):
         for box in boxes:
