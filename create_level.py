@@ -20,7 +20,8 @@ edit_cnfg = {
     'h': 700,
     'bg_col': (136, 136, 136),
     'b_x': 1100/10,
-    'b_y': 700/5,
+    'b_left_y': 700/5,
+    'b_right_y': 700/6,
     'b_sizex': 80,
     'b_sizey': 80,
     'wrk_x': 1100/2,
@@ -194,22 +195,24 @@ class Editor:
         self.mainloop()
 
     def create_widgets(self):
-        self.player_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y'], edit_cnfg['b_sizex'],
+        self.player_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_left_y'], edit_cnfg['b_sizex'],
                                    edit_cnfg['b_sizey'], 'player', 'player.png')
-        self.box_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*2, edit_cnfg['b_sizex'],
+        self.box_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_left_y']*2, edit_cnfg['b_sizex'],
                                 edit_cnfg['b_sizey'], 'box', 'box.png')
-        self.wall_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*3, edit_cnfg['b_sizex'],
+        self.wall_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_left_y']*3, edit_cnfg['b_sizex'],
                                  edit_cnfg['b_sizey'], 'wall', 'wall.png')
-        self.gtile_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_y']*4, edit_cnfg['b_sizex'],
+        self.gtile_b = EditButton(edit_cnfg['b_x'], edit_cnfg['b_left_y']*4, edit_cnfg['b_sizex'],
                                   edit_cnfg['b_sizey'], 'goal_tile', 'goal_tile.png')
 
-        self.eraser_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y'], edit_cnfg['b_sizex'],
+        self.eraser_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_right_y'], edit_cnfg['b_sizex'],
                                    edit_cnfg['b_sizey'], 'eraser', 'eraser.png')
-        self.reset_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*2, edit_cnfg['b_sizex'],
+        self.reset_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_right_y']*2, edit_cnfg['b_sizex'],
                                  edit_cnfg['b_sizey'], None, 'reset.png')
-        self.save_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*3, edit_cnfg['b_sizex'],
+        self.save_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_right_y']*3, edit_cnfg['b_sizex'],
                                  edit_cnfg['b_sizey'], None, 'save.png')
-        self.quit_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_y']*4, edit_cnfg['b_sizex'],
+        self.save_as_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_right_y']*4, edit_cnfg['b_sizex'],
+                                 edit_cnfg['b_sizey'], None, 'save_as.png')
+        self.quit_b = EditButton(edit_cnfg['w'] - edit_cnfg['b_x'], edit_cnfg['b_right_y']*5, edit_cnfg['b_sizex'],
                                  edit_cnfg['b_sizey'], None, 'quit.png')
 
         self.workspace = Workspace(edit_cnfg['wrk_x'], edit_cnfg['wrk_y'],
@@ -217,7 +220,7 @@ class Editor:
 
         self.edit_group = pg.sprite.Group()
         self.edit_group.add(self.player_b, self.box_b, self.wall_b, self.gtile_b,
-                            self.eraser_b, self.reset_b, self.save_b, self.quit_b)
+                            self.eraser_b, self.reset_b, self.save_b, self.save_as_b, self.quit_b)
 
         self.workspace_group = pg.sprite.Group()
         self.workspace_group.add(self.workspace)
