@@ -3,6 +3,7 @@
 
 import pygame as pg
 import math
+import json
 
 FPS = 30
 
@@ -13,6 +14,7 @@ TILE_CLR = (250, 218, 94)  # https://graf1x.com/shades-of-yellow-color-palette-c
 GTILE_CLR = (93, 187, 99)  # https://www.color-meanings.com/shades-of-green-color-names-html-hex-rgb-codes/ (Fern)
 
 WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
 
 edit_cnfg = {
     'title': 'Create/Edit level',
@@ -31,6 +33,37 @@ edit_cnfg = {
     'base_grid_dim': 4,
 }
 
+saveas_cnfg = {
+    'main_box_x': 1100/2,
+    'main_box_y': 700/2,
+    'main_box_w': 500,
+    'main_box_h': 130,
+    'txt_box_y': 700/2 + 20,
+    'txt_box_w': 470,
+    'txt_box_h': 60,
+    'shade': (0, 0, 0, 200),
+    'labelx': 1100/2 - 72,
+    'labely': 700/2 - 45,
+    'save_namex': 1100/2 - 210,
+    'save_namey': 700/2 + 20 - 10,
+    'confirm_b_y': 700/2 + 150,
+    'confirm_b_w': 200,
+    'confirm_b_h': 50,
+    'confirm_txt_x': 1100/2 - 42,
+    'confirm_txt_y': 700/2 + 138,
+    'b_rad': 5,
+    'name_surf_lim': 470 - 60,
+    'box_outline': 2,
+    'font_size': 32,
+}
+
+'''
+Final Stages:
+- Add level naming for Save As option
+- Add grid extention
+- Add editing for existing levels
+'''
+
 
 class GameSprite(pg.sprite.Sprite):
 
@@ -43,19 +76,23 @@ class GameSprite(pg.sprite.Sprite):
         self.rect.x = x
         self.rect.y = y
 
-        # Changing rect.centre only moves the rect's centre to a position, not change what its 'centre' is
-        # So, this is used to make initial sprite placement easier
         self.rect.center = (x, y)
 
 
-class EditButton(GameSprite):
+class Button(GameSprite):
 
-    def __init__(self, x, y, w, h, paint, sprite):
+    def __init__(self, x, y, w, h, sprite):
         super().__init__(x, y, w, h)
-        self.paint = paint
         self.sprite = sprite
         self.image = pg.image.load(f'./images/{self.sprite}').convert()
         self.image = pg.transform.scale(self.image, (w, h))
+
+
+class EditButton(Button):
+
+    def __init__(self, x, y, w, h, paint, sprite):
+        super().__init__(x, y, w, h, sprite)
+        self.paint = paint
 
     def get_paint(self):
         return self.paint
@@ -87,7 +124,7 @@ class EmptySlot(GameSprite):
         self.image = pg.transform.scale(pg.image.load(f'./images/{sprite}.png').convert(), (self.w, self.h))
 
     def get_coords(self):
-        return self.row, self.col
+        return self.col, self.row
 
     def get_goal_tile(self):
         return self.goal_tile
@@ -127,10 +164,11 @@ class Workspace(GameSprite):
     - Placing an item on the outermost rim of the grid adds an outer layer to the grid, zooming out
     '''
 
-    def __init__(self, x, y, w, h, level_data):
+    def __init__(self, x, y, w, h, curr_level_data):
         super().__init__(x, y, w, h)
         self.empty_slots_group = pg.sprite.Group()
-        self.set_board(edit_cnfg['base_grid_dim'])
+        self.grid_dim = edit_cnfg['base_grid_dim']
+        self.set_board(self.grid_dim)
 
     def set_board(self, grid_dim):
         for row in range(0, grid_dim):
@@ -152,6 +190,17 @@ class Workspace(GameSprite):
         for slot in self.empty_slots_group:
             if slot.get_contents() == 'player':
                 slot.erase_contents()
+
+    def get_slot_data(self):
+        self.level_data = {"name": "", "grid_dim": self.grid_dim, "player_coords": [], "box_coords": [],
+                           "wall_coords": [], "goal_tile_coords": []}
+        for slot in self.empty_slots_group:
+            if slot.get_goal_tile():
+                self.level_data["goal_tile_coords"].append(slot.get_coords())
+            if slot.get_contents():
+                if slot.get_contents():
+                    self.level_data[f"{slot.get_contents()}_coords"].append(slot.get_coords())
+        return self.level_data
 
     def events(self, mouse_point, paint):
         for slot in self.empty_slots_group:
@@ -177,16 +226,101 @@ class Workspace(GameSprite):
         self.empty_slots_group.draw(self.image)
 
 
+class SaveAs:
+
+    def __init__(self, editor_screen_img):
+        self.original_bg = editor_screen_img
+        self.screen = pg.display.set_mode(self.original_bg.get_size())
+        self.dark = pg.Surface(self.screen.get_size()).convert_alpha()
+        self.dark.fill(saveas_cnfg['shade'])
+
+        pg.key.set_repeat(500, 25)
+
+        self.clock = pg.time.Clock()
+        self.done = False
+
+        self.save_name = ''
+        self.confirmed = False
+        self.txt_box_active = False
+
+        self.create_widgets()
+
+        self.mainloop()
+
+    def create_widgets(self):
+        self.main_box = GameSprite(saveas_cnfg['main_box_x'], saveas_cnfg['main_box_y'],
+                                   saveas_cnfg['main_box_w'], saveas_cnfg['main_box_h'])
+        self.text_box = GameSprite(saveas_cnfg['main_box_x'], saveas_cnfg['txt_box_y'],
+                                   saveas_cnfg['txt_box_w'], saveas_cnfg['txt_box_h'])
+        self.font = pg.font.Font(None, saveas_cnfg['font_size'])
+        self.save_label = 'Save level as ...'
+        self.save_label_txt = self.font.render(self.save_label, True, WHITE)
+        self.save_name_txt = self.font.render(self.save_name, True, WHITE)
+        self.confirm_b_txt = self.font.render('Confirm', True, WHITE)
+        self.confirm_b = GameSprite(saveas_cnfg['main_box_x'], saveas_cnfg['confirm_b_y'],
+                                    saveas_cnfg['confirm_b_w'], saveas_cnfg['confirm_b_h'])
+
+    def draw_all(self):
+        self.txt_box_col = WHITE if self.txt_box_active else BLACK
+        self.screen.blit(self.original_bg, (0, 0))
+        self.screen.blit(self.dark, (0, 0))
+        self.screen.blit(self.save_label_txt, (saveas_cnfg['labelx'], saveas_cnfg['labely']))
+        self.screen.blit(self.confirm_b_txt, (saveas_cnfg['confirm_txt_x'], saveas_cnfg['confirm_txt_y']))
+        pg.draw.rect(self.screen, WHITE, self.main_box.rect, saveas_cnfg['box_outline'], saveas_cnfg['b_rad'])
+        pg.draw.rect(self.screen, self.txt_box_col, self.text_box.rect, saveas_cnfg['box_outline'], saveas_cnfg['b_rad'])
+        pg.draw.rect(self.screen, WHITE, self.confirm_b.rect, saveas_cnfg['box_outline'], saveas_cnfg['b_rad'])
+        if self.save_name:
+            self.screen.blit(self.save_name_txt,
+                             (saveas_cnfg['save_namex'], saveas_cnfg['save_namey']))
+
+    def get_name(self):
+        if self.confirmed:
+            return self.save_name
+
+    def mainloop(self):
+
+        self.clock.tick(FPS)
+
+        while not self.done:
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.done = True
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if self.text_box.rect.collidepoint(event.pos):
+                            self.txt_box_active = True
+                        elif self.confirm_b.rect.collidepoint(event.pos):
+                            if len(self.save_name) > 0:
+                                self.confirmed = True
+                                self.done = True
+                        else:
+                            self.done = True
+                if event.type == pg.KEYDOWN:
+                    if self.txt_box_active:
+                        if event.key == pg.K_BACKSPACE:
+                            self.save_name = self.save_name[:-1]
+                        elif (event.unicode.isalnum() or event.key == pg.K_SPACE) \
+                                and self.save_name_txt.get_width() < saveas_cnfg['name_surf_lim']:
+                            self.save_name += event.unicode
+                        self.save_name_txt = self.font.render(self.save_name, True, WHITE)
+
+            self.draw_all()
+
+            pg.display.flip()
+
+
 class Editor:
 
-    def __init__(self, level_data):
+    def __init__(self, curr_level_data):
         pg.init()
         self.screen = pg.display.set_mode((edit_cnfg['w'], edit_cnfg['h']))
         self.screen.fill(edit_cnfg['bg_col'])
         self.clock = pg.time.Clock()
         pg.display.set_caption(edit_cnfg['title'])
-        self.level_data = level_data
+        self.curr_level_data = curr_level_data
         self.done = False
+
+        self.exiting_level = True if self.curr_level_data else False
 
         self.selected = None
 
@@ -216,11 +350,13 @@ class Editor:
                                  edit_cnfg['b_sizey'], None, 'quit.png')
 
         self.workspace = Workspace(edit_cnfg['wrk_x'], edit_cnfg['wrk_y'],
-                                   edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.level_data)
+                                   edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.curr_level_data)
 
         self.edit_group = pg.sprite.Group()
         self.edit_group.add(self.player_b, self.box_b, self.wall_b, self.gtile_b,
-                            self.eraser_b, self.reset_b, self.save_b, self.save_as_b, self.quit_b)
+                            self.eraser_b, self.reset_b, self.save_as_b, self.quit_b)
+        if self.exiting_level:
+            self.edit_group.add(self.save_b)
 
         self.workspace_group = pg.sprite.Group()
         self.workspace_group.add(self.workspace)
@@ -228,8 +364,22 @@ class Editor:
     def reset_board(self):
         self.workspace_group = pg.sprite.Group()
         self.workspace = Workspace(edit_cnfg['wrk_x'], edit_cnfg['wrk_y'],
-                                   edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.level_data)
+                                   edit_cnfg['wrk_sizex'], edit_cnfg['wrk_sizey'], self.curr_level_data)
         self.workspace_group.add(self.workspace)
+
+    def compile_level(self, name):
+        self.level_data = self.workspace.get_slot_data()
+        self.level_data['name'] = name
+        self.file_name = name.replace(' ', '_')
+        with open(f'./levels/{self.file_name}.txt', 'w') as file:
+            json.dump(self.level_data, file, indent=4)
+
+    def confirm_write(self):
+        self.curr_screen = pg.Surface((self.screen.get_size()))
+        self.curr_screen.blit(self.screen, (0, 0))
+        self.save_name = SaveAs(self.curr_screen).get_name()
+        if self.save_name:
+            self.compile_level(self.save_name)
 
     def draw_groups(self):
         self.workspace_group.draw(self.screen)
@@ -252,11 +402,18 @@ class Editor:
                                 self.selected = button.get_paint()
                         if self.reset_b.rect.collidepoint(self.mouse_point):
                             self.reset_board()
+                        if self.save_b.rect.collidepoint(self.mouse_point):
+                            # Save writes over the original level file with the same name
+                            self.compile_level('new_lvl')
+                        if self.save_as_b.rect.collidepoint(self.mouse_point):
+                            # Save as will open a window for the user to write a new file name
+                            self.confirm_write()
                         if self.quit_b.rect.collidepoint(self.mouse_point):
                             self.done = True
                         if self.workspace.rect.collidepoint(self.mouse_point) and self.selected:
                             self.workspace.events(self.mouse_point, self.selected)
 
+            self.screen.fill(edit_cnfg['bg_col'])
             self.draw_groups()
 
             pg.display.flip()
